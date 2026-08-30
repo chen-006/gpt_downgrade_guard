@@ -8,7 +8,7 @@ from typing import Any
 
 @dataclass
 class Config:
-    sub2api_base_url: str = "http://127.0.0.1:3000"
+    sub2api_base_url: str = "http://127.0.0.1:8080"
     admin_token: str = ""
     group_a_id: int = 0
     group_b_id: int = 0

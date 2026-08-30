@@ -2,6 +2,12 @@ const state = {
   current: null,
   groups: [],
   timer: null,
+  saveTimer: null,
+  dirty: false,
+  saving: false,
+  editVersion: 0,
+  configSignature: "",
+  accountsSignature: "",
 }
 
 const $ = (id) => document.getElementById(id)
@@ -27,38 +33,28 @@ function resultLabel(result) {
 }
 
 function renderHistory(history) {
-  const items = Array.isArray(history) ? history.slice(-100) : []
-  const slots = Array.from({ length: 100 }, (_, index) => {
-    const offset = items.length - 100 + index
-    return offset >= 0 ? items[offset] : null
-  })
+  const items = Array.isArray(history) ? history.slice(-100).reverse() : []
+  const slots = Array.from({ length: 100 }, (_, index) => items[index] || null)
   const bars = slots.map((item) => {
     if (!item) return `<span class="bar empty" title="无记录"></span>`
-    const red = item.degraded ? "red" : "green"
-    return `<span class="bar ${red}" title="${esc(item.ts || "")} · ${esc(item.result || "")}"></span>`
+    const requestError = Boolean(item.request_error)
+    const color = requestError ? "network" : (item.degraded ? "red" : "green")
+    const label = item.result || ""
+    return `<span class="bar ${color}" title="${esc(item.ts || "")} · ${esc(label)}"></span>`
   }).join("")
   return `<div class="history-bars">${bars}</div>`
 }
 
-function renderProbeRows(rows) {
-  const items = Array.isArray(rows) ? rows : []
-  if (!items.length) return `<div class="muted">没有可显示的探针结果。</div>`
-  return items.map((row) => {
-    const samples = (row.samples || []).join(" / ")
-    const matches = row.matches || {}
-    return `
-      <div class="probe-card">
-        <div class="probe-head">
-          <strong>${esc(row.probe_id)}</strong>
-          <span>${row.complete ? "已完成" : "未完成"}</span>
-        </div>
-        <div class="probe-body">
-          <div>样本：${esc(samples || "-")}</div>
-          <div>匹配：Sol ${(Number(matches["gpt-5.6-sol"] || 0) * 100).toFixed(2)}% · Terra ${(Number(matches["gpt-5.6-terra"] || 0) * 100).toFixed(2)}% · Luna ${(Number(matches["gpt-5.6-luna"] || 0) * 100).toFixed(2)}%</div>
-        </div>
+function renderProbeSummary(account) {
+  const matches = account.last_scores || {}
+  return `
+    <div class="probe-card">
+      <div class="probe-body">
+        <div>请求数：${Number(account.last_request_count || 0)} · 成功数：${Number(account.last_success_count || 0)}</div>
+        <div>Sol ${(Number(matches["gpt-5.6-sol"] || 0) * 100).toFixed(2)}% · Terra ${(Number(matches["gpt-5.6-terra"] || 0) * 100).toFixed(2)}% · Luna ${(Number(matches["gpt-5.6-luna"] || 0) * 100).toFixed(2)}%</div>
       </div>
-    `
-  }).join("")
+    </div>
+  `
 }
 
 function renderAccounts(accounts) {
@@ -71,7 +67,11 @@ function renderAccounts(accounts) {
   tbody.innerHTML = items.map((account) => {
     const groups = Array.isArray(account.group_names) ? account.group_names.filter(Boolean).join("、") : ""
     const bars = renderHistory(account.history || [])
-    const probeRows = renderProbeRows(account.last_probe_rows || [])
+    const probeSummary = renderProbeSummary(account)
+    const requestError = Boolean(account.last_request_error)
+    const result = resultLabel(account.last_result)
+    const pillClass = requestError ? "network" : (account.last_degraded ? "bad" : "good")
+    const pillLabel = requestError ? result : (account.last_degraded ? "降智" : "未降智")
     return `
       <tr>
         <td>
@@ -79,21 +79,16 @@ function renderAccounts(accounts) {
           <div class="muted">#${esc(account.account_id)} · ${esc(account.platform || "")}</div>
         </td>
         <td>${esc(groups || "—")}</td>
-        <td>${esc(resultLabel(account.last_result))}</td>
-        <td><span class="pill ${account.last_degraded ? "bad" : "good"}">${account.last_degraded ? "降智" : "未降智"}</span></td>
+        <td>${esc(result)}</td>
+        <td><span class="pill ${pillClass}">${pillLabel}</span></td>
         <td>${esc(fmtTime(account.last_checked_at))}</td>
         <td>
           <details class="row-details">
-            <summary>看探针</summary>
-            ${probeRows}
+            <summary>探针详情</summary>
+            ${probeSummary}
           </details>
         </td>
-        <td>
-          <details class="row-details">
-            <summary>看历史</summary>
-            ${bars}
-          </details>
-        </td>
+        <td>${bars}</td>
       </tr>
     `
   }).join("")
@@ -135,16 +130,32 @@ async function refresh() {
   ])
   const data = await statusResponse.json()
   const groups = await groupsResponse.json()
+  state.groups = Array.isArray(groups) ? groups : (groups?.items || [])
   state.current = data
+  const scrollX = window.scrollX
+  const scrollY = window.scrollY
+  let rendered = false
   $("status-running").textContent = data.running ? "运行中" : (data.paused ? "已暂停" : "空闲")
   $("status-next").textContent = fmtTime(data.next_run_at)
   $("status-a-count").textContent = data.group_a_count ?? 0
   $("status-b-count").textContent = data.group_b_count ?? 0
   $("status-checked").textContent = data.checked_count ?? 0
   $("status-error").textContent = data.last_error || ""
-  renderConfig(data.config || {})
-  renderGroups(groups, data.config || {})
-  renderAccounts(data.accounts || [])
+  const configSignature = JSON.stringify([data.config || {}, state.groups])
+  if (!state.dirty && !state.saving && configSignature !== state.configSignature) {
+    renderConfig(data.config || {})
+    renderGroups(state.groups, data.config || {})
+    state.configSignature = configSignature
+    rendered = true
+  }
+  const accounts = data.accounts || []
+  const accountsSignature = JSON.stringify(accounts)
+  if (accountsSignature !== state.accountsSignature) {
+    renderAccounts(accounts)
+    state.accountsSignature = accountsSignature
+    rendered = true
+  }
+  if (rendered) requestAnimationFrame(() => window.scrollTo(scrollX, scrollY))
 }
 
 async function postJSON(path, body) {
@@ -153,7 +164,11 @@ async function postJSON(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body || {}),
   })
-  return response.json()
+  const result = await response.json()
+  if (!response.ok || result.ok === false) {
+    throw new Error(result.error || `请求失败：${response.status}`)
+  }
+  return result
 }
 
 function collectConfig() {
@@ -170,14 +185,44 @@ function collectConfig() {
   return payload
 }
 
+function scheduleSave() {
+  state.dirty = true
+  state.editVersion += 1
+  if (state.saveTimer) clearTimeout(state.saveTimer)
+  state.saveTimer = setTimeout(saveConfig, 400)
+}
+
+async function saveConfig() {
+  if (state.saving) return
+  const version = state.editVersion
+  state.saving = true
+  try {
+    const result = await postJSON("/api/config", collectConfig())
+    if (version === state.editVersion) {
+      state.dirty = false
+      renderConfig(result.config || {})
+      renderGroups(state.groups, result.config || {})
+      state.configSignature = JSON.stringify([result.config || {}, state.groups])
+      $("cfg-admin-token").value = ""
+      $("status-error").textContent = ""
+    }
+  } catch (error) {
+    $("status-error").textContent = error?.message || String(error)
+  } finally {
+    state.saving = false
+    if (state.dirty && version !== state.editVersion) {
+      if (state.saveTimer) clearTimeout(state.saveTimer)
+      state.saveTimer = setTimeout(saveConfig, 400)
+    }
+  }
+}
+
 async function wire() {
   $("btn-save").addEventListener("click", async () => {
-    await postJSON("/api/config", collectConfig())
-    await refresh()
-  })
-  $("btn-run").addEventListener("click", async () => {
-    await postJSON("/api/run-now", {})
-    await refresh()
+    if (state.saveTimer) clearTimeout(state.saveTimer)
+    state.dirty = true
+    state.editVersion += 1
+    await saveConfig()
   })
   $("btn-pause").addEventListener("click", async () => {
     await postJSON("/api/pause", {})
@@ -188,15 +233,21 @@ async function wire() {
     await refresh()
   })
   $("btn-token-auto").addEventListener("click", async () => {
-    const result = await postJSON("/api/token/auto", {})
-    if (!result.ok) {
-      $("status-error").textContent = result.error || "自动获取失败"
-      return
+    try {
+      await postJSON("/api/token/auto", {})
+      $("cfg-admin-token").value = ""
+      await refresh()
+    } catch (error) {
+      $("status-error").textContent = error?.message || String(error)
     }
-    $("cfg-admin-token").value = ""
-    await refresh()
   })
   await refresh()
+  for (const id of ["cfg-base-url", "cfg-admin-token", "cfg-interval"]) {
+    $(id).addEventListener("input", scheduleSave)
+  }
+  for (const id of ["cfg-rule", "cfg-group-a", "cfg-group-b"]) {
+    $(id).addEventListener("change", scheduleSave)
+  }
   if (state.timer) clearInterval(state.timer)
   state.timer = setInterval(refresh, 5000)
 }

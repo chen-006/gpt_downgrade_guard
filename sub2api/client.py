@@ -13,6 +13,9 @@ class Sub2APIError(RuntimeError):
     pass
 
 
+USER_AGENT = "gpt-downgrade-guard/1.0"
+
+
 @dataclass
 class _ResponseData:
     text: str
@@ -31,6 +34,7 @@ class Sub2APIClient:
             url = f"{url}?{urlencode({key: value for key, value in params.items() if value is not None})}"
         headers = {
             "Accept": "application/json, text/event-stream",
+            "User-Agent": USER_AGENT,
         }
         if self.admin_token:
             headers["Authorization"] = f"Bearer {self.admin_token}"
@@ -45,8 +49,9 @@ class Sub2APIClient:
                 return _ResponseData(text=text, json_value=self._parse_json_payload(text))
         except HTTPError as exc:
             raise Sub2APIError(exc.read().decode("utf-8", errors="replace") or str(exc)) from exc
-        except URLError as exc:
-            raise Sub2APIError(str(exc.reason)) from exc
+        except (URLError, TimeoutError, ConnectionError, OSError) as exc:
+            reason = getattr(exc, "reason", exc)
+            raise Sub2APIError(str(reason)) from exc
 
     @staticmethod
     def _parse_json_payload(text: str) -> Any:
@@ -101,6 +106,7 @@ class Sub2APIClient:
                 "Authorization": f"Bearer {self.admin_token}",
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
+                "User-Agent": USER_AGENT,
             },
         )
         try:
@@ -108,8 +114,9 @@ class Sub2APIClient:
                 text = self._read_sse_response(response)
         except HTTPError as exc:
             raise Sub2APIError(exc.read().decode("utf-8", errors="replace") or str(exc)) from exc
-        except URLError as exc:
-            raise Sub2APIError(str(exc.reason)) from exc
+        except (URLError, TimeoutError, ConnectionError, OSError) as exc:
+            reason = getattr(exc, "reason", exc)
+            raise Sub2APIError(str(reason)) from exc
         if not text.strip():
             raise Sub2APIError("测试没有返回内容")
         return text

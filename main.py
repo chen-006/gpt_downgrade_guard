@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -12,7 +13,7 @@ from core.config import Config, load_config, save_config
 from core.probe import run_account_probes
 from core.score import classify_account, load_baseline
 from core.state import StateStore
-from browser_token import find_browser_admin_token
+from browser_token import find_browser_admin_tokens
 from sub2api.client import Sub2APIClient, Sub2APIError
 
 
@@ -52,6 +53,9 @@ class GuardApp:
                 "running": False,
                 "paused": False,
                 "last_error": "",
+                "checked_count": 0,
+                "group_a_count": 0,
+                "group_b_count": 0,
                 "groups": {"a": {}, "b": {}},
                 "accounts": [],
             }
@@ -59,17 +63,40 @@ class GuardApp:
 
     def reload_config(self, updates: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
+            refresh_counts = any(
+                key in updates for key in ("sub2api_base_url", "admin_token", "group_a_id", "group_b_id")
+            )
             self.config = self.config.updated(updates)
             save_config(self.config_path, self.config)
             self.client = self._make_client()
-            self.state.update({"config": self.config.public_dict()})
+            state_update = {"config": self.config.public_dict(), "last_error": ""}
+            if refresh_counts and self.client is not None and self.config.group_a_id > 0 and self.config.group_b_id > 0:
+                accounts, _, configured_groups = self._load_accounts()
+                state_update.update(
+                    {
+                        "group_a_count": sum(
+                            1 for item in accounts if self.config.group_a_id in (item.get("group_ids") or [])
+                        ),
+                        "group_b_count": sum(
+                            1 for item in accounts if self.config.group_b_id in (item.get("group_ids") or [])
+                        ),
+                        "groups": configured_groups,
+                    }
+                )
+            self.state.update(state_update)
             return self.config.public_dict()
 
     def auto_fetch_admin_token(self) -> dict[str, Any]:
-        token = find_browser_admin_token(self.config.sub2api_base_url)
-        if not token:
+        tokens = find_browser_admin_tokens(self.config.sub2api_base_url)
+        if not tokens:
             raise Sub2APIError("没有在常见浏览器里找到管理令牌")
-        return self.reload_config({"admin_token": token})
+        for token in tokens:
+            try:
+                Sub2APIClient(self.config.sub2api_base_url, token).list_groups()
+            except Sub2APIError:
+                continue
+            return self.reload_config({"admin_token": token})
+        raise Sub2APIError("找到了浏览器令牌，但没有可用的管理员令牌")
 
     def set_paused(self, paused: bool) -> dict[str, Any]:
         with self._lock:
@@ -77,6 +104,10 @@ class GuardApp:
             return self.state.snapshot()
 
     def request_run(self) -> dict[str, Any]:
+        if int(self.config.group_a_id) <= 0 or int(self.config.group_b_id) <= 0:
+            message = "请先选择分组 A 和分组 B"
+            self.state.update({"last_error": message})
+            return {"accepted": False, "busy": False, "error": message}
         if not self._run_lock.acquire(blocking=False):
             return {"accepted": False, "busy": True}
         thread = threading.Thread(target=self._run_once, daemon=True)
@@ -115,11 +146,17 @@ class GuardApp:
         group_names = {int(group["id"]): str(group.get("name") or "") for group in groups}
         group_a = int(self.config.group_a_id)
         group_b = int(self.config.group_b_id)
+        if group_a <= 0 or group_b <= 0:
+            raise Sub2APIError("请先选择分组 A 和分组 B")
         accounts_a = self.client.list_accounts_by_group(group_a)
         accounts_b = self.client.list_accounts_by_group(group_b)
         merged: dict[int, dict[str, Any]] = {}
+        selected_groups = {group_a, group_b}
         for item in accounts_a + accounts_b:
             if str(item.get("platform") or "").strip().lower() != "openai":
+                continue
+            item_groups = {int(value) for value in item.get("group_ids") or []}
+            if not item_groups.intersection(selected_groups):
                 continue
             account_id = int(item["id"])
             merged[account_id] = dict(item)
@@ -158,14 +195,29 @@ class GuardApp:
             checked_count = 0
             group_a_id = int(self.config.group_a_id)
             group_b_id = int(self.config.group_b_id)
+            initial_a_count = sum(1 for item in accounts if group_a_id in (item.get("group_ids") or []))
+            initial_b_count = sum(1 for item in accounts if group_b_id in (item.get("group_ids") or []))
+            self.state.update(
+                {
+                    "checked_count": 0,
+                    "group_a_count": initial_a_count,
+                    "group_b_count": initial_b_count,
+                    "groups": configured_groups,
+                }
+            )
 
-            for account in accounts:
-                checked_count += 1
+            def process_account(account: dict[str, Any]) -> dict[str, Any]:
                 probe_result = run_account_probes(self.client, account, self.baseline)
-                final = classify_account(probe_result, self.config.downgrade_rule)
+                final = classify_account(probe_result.get("score") or {}, self.config.downgrade_rule)
                 current_groups = [int(value) for value in account.get("group_ids") or []]
-                target_group = group_b_id if final["degraded"] else group_a_id
-                next_groups = self._move_groups(current_groups, group_a_id, group_b_id, target_group)
+                request_error = not bool(probe_result.get("complete"))
+                if request_error:
+                    final["result"] = "网络错误/上游错误"
+                    final["degraded"] = False
+                    next_groups = current_groups
+                else:
+                    target_group = group_b_id if final["degraded"] else group_a_id
+                    next_groups = self._move_groups(current_groups, group_a_id, group_b_id, target_group)
 
                 moved = False
                 move_error = ""
@@ -177,21 +229,28 @@ class GuardApp:
                     except Exception as exc:  # pragma: no cover - surfaced in UI
                         move_error = str(exc)
 
-                account_rows.append(
-                    self.state.merge_account(
-                        account_id=int(account["id"]),
-                        name=str(account.get("name") or f"账号 {account['id']}"),
-                        platform=str(account.get("platform") or ""),
-                        group_ids=current_groups if move_error else next_groups,
-                        group_names=[group_names.get(gid, str(gid)) for gid in (current_groups if move_error else next_groups)],
-                        probe_result=probe_result,
-                        final=final,
-                        moved_to="B" if final["degraded"] else "A",
-                        moved=moved,
-                        move_error=move_error,
-                    )
+                return self.state.merge_account(
+                    account_id=int(account["id"]),
+                    name=str(account.get("name") or f"账号 {account['id']}"),
+                    platform=str(account.get("platform") or ""),
+                    group_ids=current_groups if move_error else next_groups,
+                    group_names=[group_names.get(gid, str(gid)) for gid in (current_groups if move_error else next_groups)],
+                    probe_result=probe_result,
+                    final=final,
+                    moved_to="" if request_error else ("B" if final["degraded"] else "A"),
+                    moved=moved,
+                    move_error=move_error,
+                    request_error=request_error,
                 )
 
+            with ThreadPoolExecutor(max_workers=max(1, len(accounts))) as pool:
+                futures = [pool.submit(process_account, account) for account in accounts]
+                for future in as_completed(futures):
+                    account_rows.append(future.result())
+                    checked_count += 1
+                    self.state.update({"checked_count": checked_count})
+
+            account_rows.sort(key=lambda item: int(item.get("account_id") or 0))
             group_a_count = sum(1 for item in account_rows if group_a_id in item.get("group_ids", []))
             group_b_count = sum(1 for item in account_rows if group_b_id in item.get("group_ids", []))
             self.state.update(

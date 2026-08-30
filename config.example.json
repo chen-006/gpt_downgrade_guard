@@ -1,5 +1,5 @@
 {
-  "sub2api_base_url": "http://127.0.0.1:3000",
+  "sub2api_base_url": "http://127.0.0.1:8080",
   "admin_token": "",
   "group_a_id": 0,
   "group_b_id": 0,

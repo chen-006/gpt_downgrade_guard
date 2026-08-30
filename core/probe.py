@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from .score import score_account
@@ -38,37 +39,41 @@ def _probe_payload(prompt: str) -> dict[str, Any]:
     }
 
 
-def _run_single_probe(client: Any, account_id: int, prompt: str) -> str:
-    for attempt in range(RETRY_BUDGET + 1):
-        try:
-            raw = client.test_account(account_id, _probe_payload(prompt))
-            return raw
-        except Exception:
-            if attempt >= RETRY_BUDGET:
-                raise
-            time.sleep(0.25)
-    raise RuntimeError("unreachable")
-
-
 def run_account_probes(client: Any, account: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
     probe_values: dict[str, list[str]] = {probe["id"]: [] for probe in PROBES}
-    failure = ""
-    for probe in PROBES:
-        probe_id = probe["id"]
-        for _ in range(3):
-            try:
-                raw = _run_single_probe(client, int(account["id"]), probe["prompt"])
-                probe_values[probe_id].append(normalize_probe_answer(probe_id, raw))
-            except Exception as exc:
-                failure = str(exc)
-                break
-        if failure:
-            break
 
-    if failure:
+    def run_sample(probe: dict[str, str]) -> tuple[str, str, str, int, int]:
+        probe_id = probe["id"]
+        for attempt in range(RETRY_BUDGET + 1):
+            try:
+                raw = client.test_account(int(account["id"]), _probe_payload(probe["prompt"]))
+                return probe_id, normalize_probe_answer(probe_id, raw), "", attempt + 1, 1
+            except Exception as exc:
+                if attempt >= RETRY_BUDGET:
+                    return probe_id, "", str(exc), attempt + 1, 0
+                time.sleep(0.25)
+        raise RuntimeError("unreachable")
+
+    samples = [probe for probe in PROBES for _ in range(3)]
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = list(pool.map(run_sample, samples))
+
+    failures = []
+    for probe_id, value, failure, _, _ in results:
+        if failure:
+            failures.append(failure)
+        else:
+            probe_values[probe_id].append(value)
+    stats = {
+        "request_count": sum(item[3] for item in results),
+        "success_count": sum(item[4] for item in results),
+    }
+
+    if failures:
         return {
             "complete": False,
-            "failure": failure,
+            "failure": failures[0],
+            **stats,
             "probe_values": probe_values,
             "score": score_account(probe_values, baseline),
         }
@@ -76,6 +81,7 @@ def run_account_probes(client: Any, account: dict[str, Any], baseline: dict[str,
     return {
         "complete": True,
         "failure": "",
+        **stats,
         "probe_values": probe_values,
         "score": score_account(probe_values, baseline),
     }

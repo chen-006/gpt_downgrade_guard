@@ -79,6 +79,7 @@ class StateStore:
         moved_to: str,
         moved: bool,
         move_error: str,
+        request_error: bool,
     ) -> dict[str, Any]:
         with self._lock:
             accounts: list[dict[str, Any]] = list(self._state.get("accounts") or [])
@@ -96,6 +97,7 @@ class StateStore:
                     "ts": _now(),
                     "result": final["result"],
                     "degraded": bool(final["degraded"]),
+                    "request_error": request_error,
                     "moved_to": moved_to if moved and not move_error else "",
                     "move_error": move_error,
                 }
@@ -110,8 +112,11 @@ class StateStore:
                     "group_names": group_names,
                     "last_result": final["result"],
                     "last_degraded": bool(final["degraded"]),
+                    "last_request_error": request_error,
                     "last_checked_at": _now(),
                     "last_scores": final.get("matches") or {},
+                    "last_request_count": int(probe_result.get("request_count") or 0),
+                    "last_success_count": int(probe_result.get("success_count") or 0),
                     "last_probe_values": probe_result.get("probe_values") or {},
                     "last_probe_rows": final.get("probe_rows") or [],
                     "last_reasons": final.get("reasons") or [],
