@@ -19,6 +19,14 @@ body {
   margin-bottom: 16px;
 }
 
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .eyebrow {
   font-size: 12px;
   color: #6b7280;
@@ -99,6 +107,13 @@ button.primary {
   color: #fff;
 }
 
+.launch-btn {
+  min-width: 120px;
+  padding: 11px 18px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -123,6 +138,16 @@ input, select {
   border-radius: 8px;
   padding: 9px 10px;
   background: #fff;
+}
+
+.inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-actions input {
+  flex: 1;
 }
 
 .save-row {

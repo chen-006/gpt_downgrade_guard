@@ -12,6 +12,7 @@ from core.config import Config, load_config, save_config
 from core.probe import run_account_probes
 from core.score import classify_account, load_baseline
 from core.state import StateStore
+from browser_token import find_browser_admin_token
 from sub2api.client import Sub2APIClient, Sub2APIError
 
 
@@ -63,6 +64,12 @@ class GuardApp:
             self.client = self._make_client()
             self.state.update({"config": self.config.public_dict()})
             return self.config.public_dict()
+
+    def auto_fetch_admin_token(self) -> dict[str, Any]:
+        token = find_browser_admin_token(self.config.sub2api_base_url)
+        if not token:
+            raise Sub2APIError("没有在常见浏览器里找到管理令牌")
+        return self.reload_config({"admin_token": token})
 
     def set_paused(self, paused: bool) -> dict[str, Any]:
         with self._lock:
@@ -254,7 +261,21 @@ class GuardApp:
                     self._send_json(payload)
                     return
                 if self.path == "/api/groups":
-                    self._send_json(app.state.snapshot().get("groups", {}))
+                    if app.client is None:
+                        self._send_json({"items": []})
+                        return
+                    try:
+                        self._send_json({"items": app.client.list_groups()})
+                    except Sub2APIError as exc:
+                        self._send_json({"items": [], "error": str(exc)})
+                    return
+                if self.path == "/api/token/auto":
+                    try:
+                        payload = app.auto_fetch_admin_token()
+                    except Sub2APIError as exc:
+                        self._send_json({"ok": False, "error": str(exc)})
+                        return
+                    self._send_json({"ok": True, "config": payload})
                     return
                 self.send_error(404)
 
@@ -271,6 +292,15 @@ class GuardApp:
                 if self.path == "/api/run-now":
                     result = app.request_run()
                     self._send_json({"ok": True, **result})
+                    return
+                if self.path == "/api/token/auto":
+                    try:
+                        payload = app.auto_fetch_admin_token()
+                    except Sub2APIError as exc:
+                        self._send_json({"ok": False, "error": str(exc)})
+                        return
+                    app._wakeup_event.set()
+                    self._send_json({"ok": True, "config": payload})
                     return
                 if self.path == "/api/pause":
                     self._send_json({"ok": True, **app.set_paused(True)})

@@ -28,6 +28,7 @@ C:\tools\sub2api_gpt_downgrade_guard
 
 - `install\apply_sub2api_patch.ps1`
 - `install\run_guard.ps1`
+- `一键启动_防降智小程序.bat`
 - `main.py`
 - `config.example.json`
 
@@ -58,12 +59,28 @@ powershell -ExecutionPolicy Bypass -File "C:\tools\sub2api_gpt_downgrade_guard\i
 - `interval_seconds`
 - `downgrade_rule`
 
+### 管理令牌怎么自动抓
+
+如果你不想手动填 `admin_token`，可以点页面里的“自动获取”。
+
+这个按钮会在你本机常见的 Chromium 浏览器本地数据里找 `auth_token`，主要看这几个浏览器：
+
+- Chrome
+- Edge
+- Brave
+- Chromium
+
+它只读本机浏览器里的本地数据，不会把令牌上传，也不会写进项目文件。
+
+如果你已经在浏览器里登录过 Sub2 API 管理后台，通常点一下就能抓到。
+如果没抓到，就说明浏览器里还没有对应的登录信息，或者令牌不在这些浏览器里，这时候就手动填 `admin_token`。
+
 ### 第 4 步，启动小程序
 
-最简单的方式是直接双击：
+最简单的方式是直接双击根目录里的：
 
 ```text
-install\run_guard.bat
+一键启动_防降智小程序.bat
 ```
 
 如果你更习惯 PowerShell，也可以运行：
@@ -96,6 +113,9 @@ http://127.0.0.1:8787
 - `分组 B`：降智后要搬去的分组。
 - `检测间隔（秒）`：默认 180。
 - `降智标准`：只有“严格”和“宽松”两个选项。
+
+页面里还有一个“自动获取”按钮，会试着从浏览器本地数据里找管理令牌。
+分组选择会先拉一次 Sub2 API 的分组名单，你按名字选就行。
 
 ## 运行后会发生什么
 

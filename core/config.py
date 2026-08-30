@@ -54,7 +54,9 @@ def load_config(path: Path) -> Config:
 
 def save_config(path: Path, config: Config) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = json.dumps(asdict(config), ensure_ascii=False, indent=2)
+    data_dict = asdict(config)
+    data_dict["admin_token"] = ""
+    data = json.dumps(data_dict, ensure_ascii=False, indent=2)
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(data, encoding="utf-8")
     temp.replace(path)

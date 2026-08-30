@@ -1,5 +1,6 @@
 const state = {
   current: null,
+  groups: [],
   timer: null,
 }
 
@@ -98,23 +99,42 @@ function renderAccounts(accounts) {
   }).join("")
 }
 
-function renderGroups(groups) {
-  $("group-a-name").textContent = groups?.a?.name || "-"
-  $("group-b-name").textContent = groups?.b?.name || "-"
+function renderGroups(groups, config) {
+  const items = Array.isArray(groups) ? groups : (groups?.items || [])
+  state.groups = items
+  const options = ['<option value="0">请选择分组</option>']
+  for (const group of items) {
+    const id = Number(group.id || 0)
+    const name = String(group.name || `分组 ${id}`)
+    options.push(`<option value="${id}">${esc(name)} #${id}</option>`)
+  }
+  const html = options.join("")
+  $("cfg-group-a").innerHTML = html
+  $("cfg-group-b").innerHTML = html
+  const groupAId = Number(config?.group_a_id || 0)
+  const groupBId = Number(config?.group_b_id || 0)
+  $("cfg-group-a").value = String(groupAId)
+  $("cfg-group-b").value = String(groupBId)
+  const groupA = items.find((item) => Number(item.id || 0) === groupAId)
+  const groupB = items.find((item) => Number(item.id || 0) === groupBId)
+  $("group-a-name").textContent = groupA ? `${groupA.name || "-"} #${groupA.id}` : "-"
+  $("group-b-name").textContent = groupB ? `${groupB.name || "-"} #${groupB.id}` : "-"
 }
 
 function renderConfig(config) {
   $("cfg-base-url").value = config?.sub2api_base_url || ""
   $("cfg-interval").value = config?.interval_seconds || 180
   $("cfg-rule").value = config?.downgrade_rule || "严格"
-  $("cfg-group-a").value = config?.group_a_id || 0
-  $("cfg-group-b").value = config?.group_b_id || 0
   $("runtime-badge").textContent = config?.admin_token_set ? "已连接" : "未填令牌"
 }
 
 async function refresh() {
-  const response = await fetch("/api/status", { cache: "no-store" })
-  const data = await response.json()
+  const [statusResponse, groupsResponse] = await Promise.all([
+    fetch("/api/status", { cache: "no-store" }),
+    fetch("/api/groups", { cache: "no-store" }),
+  ])
+  const data = await statusResponse.json()
+  const groups = await groupsResponse.json()
   state.current = data
   $("status-running").textContent = data.running ? "运行中" : (data.paused ? "已暂停" : "空闲")
   $("status-next").textContent = fmtTime(data.next_run_at)
@@ -123,7 +143,7 @@ async function refresh() {
   $("status-checked").textContent = data.checked_count ?? 0
   $("status-error").textContent = data.last_error || ""
   renderConfig(data.config || {})
-  renderGroups(data.groups || {})
+  renderGroups(groups, data.config || {})
   renderAccounts(data.accounts || [])
 }
 
@@ -165,6 +185,15 @@ async function wire() {
   })
   $("btn-resume").addEventListener("click", async () => {
     await postJSON("/api/resume", {})
+    await refresh()
+  })
+  $("btn-token-auto").addEventListener("click", async () => {
+    const result = await postJSON("/api/token/auto", {})
+    if (!result.ok) {
+      $("status-error").textContent = result.error || "自动获取失败"
+      return
+    }
+    $("cfg-admin-token").value = ""
     await refresh()
   })
   await refresh()

@@ -13,7 +13,10 @@
         <div class="eyebrow">Sub2 API</div>
         <h1>防降智小程序</h1>
       </div>
-      <div id="runtime-badge" class="badge">未启动</div>
+      <div class="top-actions">
+        <div id="runtime-badge" class="badge">未启动</div>
+        <button id="btn-run" class="primary launch-btn">一键启动</button>
+      </div>
     </header>
 
     <section class="band">
@@ -30,7 +33,6 @@
       <div class="section-head">
         <h2>配置</h2>
         <div class="buttons">
-          <button id="btn-run" class="primary">立即检查一次</button>
           <button id="btn-pause">暂停</button>
           <button id="btn-resume">继续</button>
         </div>
@@ -43,7 +45,10 @@
         </label>
         <label>
           <span>管理令牌</span>
-          <input id="cfg-admin-token" type="password" placeholder="留空表示不修改" />
+          <div class="inline-actions">
+            <input id="cfg-admin-token" type="password" placeholder="留空表示不修改" />
+            <button id="btn-token-auto" type="button">自动获取</button>
+          </div>
         </label>
         <label>
           <span>检测间隔（秒）</span>
@@ -61,16 +66,22 @@
       <details class="expand">
         <summary>分组 A</summary>
         <div class="expand-body">
-          <div class="group-line"><span>分组名</span><strong id="group-a-name">-</strong></div>
-          <div class="group-line"><span>分组 ID</span><input id="cfg-group-a" type="number" min="1" step="1" /></div>
+          <div class="group-line">
+            <span>选择分组</span>
+            <select id="cfg-group-a"></select>
+          </div>
+          <div class="group-line"><span>当前分组</span><strong id="group-a-name">-</strong></div>
         </div>
       </details>
 
       <details class="expand">
         <summary>分组 B</summary>
         <div class="expand-body">
-          <div class="group-line"><span>分组名</span><strong id="group-b-name">-</strong></div>
-          <div class="group-line"><span>分组 ID</span><input id="cfg-group-b" type="number" min="1" step="1" /></div>
+          <div class="group-line">
+            <span>选择分组</span>
+            <select id="cfg-group-b"></select>
+          </div>
+          <div class="group-line"><span>当前分组</span><strong id="group-b-name">-</strong></div>
         </div>
       </details>
 
