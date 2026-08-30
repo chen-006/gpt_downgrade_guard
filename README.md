@@ -3,7 +3,8 @@
 写在前面：目前还是测试版，安装方法：
 对你的agent说（最好是控制sub2api的agent）：
 ```
-请参考并严格按照以下安装指南安装：
+请先将https://github.com/chen-006/gpt_downgrade_guard下载到本地
+参考并严格按照以下安装指南安装：
 https://github.com/chen-006/gpt_downgrade_guard/blob/main/INSTALL_GUIDE_CN.md
 
 安装前必须执行预检查：
@@ -16,32 +17,6 @@ https://github.com/chen-006/gpt_downgrade_guard/blob/main/INSTALL_GUIDE_CN.md
    - 程序需要调整账号分组；
    - 需要 Sub2API 管理员 JWT access_token；
    - access_token 只临时使用，不会保存。
-
-管理令牌获取规则：
-
-1. 先检查当前 Chrome 是否已经登录 Sub2API 管理后台。
-2. 如果已有登录会话，只在用户明确授权的前提下，从当前本地登录会话中读取管理员 access_token。
-3. 如果没有可用登录会话，不要猜测、扫描文件或读取无关密钥；请向用户索要：
-   - Sub2API 管理员邮箱
-   - Sub2API 管理员密码
-4. 使用本地接口登录：
-   POST /api/v1/auth/login
-   请求体：
-   {
-     "email": "<管理员邮箱>",
-     "password": "<管理员密码>"
-   }
-5. 从返回 JSON 的 access_token 字段取得管理令牌。
-6. 如果启用了双因素认证，按照接口要求完成 /api/v1/auth/login/2fa。
-7. 验证 access_token 是否具备管理员权限。验证失败时立即停止，不得修改账号或分组。
-8. access_token 只能保存在当前进程内存中：
-   - 不写入 config.json
-   - 不写入 .env
-   - 不写入日志
-   - 不写入临时文件
-   - 不在最终回复中输出
-9. 安装完成后立即清除内存中的 token；如果因异常退出，也要执行清理。
-10. 如果既没有已登录浏览器会话，也没有用户提供管理员登录凭据，必须直接告诉用户“没有管理令牌，无法继续”，不要继续安装。
 
 安装流程：
 
