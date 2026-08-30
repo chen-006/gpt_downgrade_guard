@@ -1,0 +1,9 @@
+这是 Sub2 API 最小补丁的说明文件，不是手工粘贴用的补丁文本。
+
+请到 Sub2 API 根目录运行：
+
+```powershell
+.\install\apply_sub2api_patch.ps1
+```
+
+它会直接修改测试入口，并在完成后提示你重启 Sub2 API。

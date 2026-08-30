@@ -1,0 +1,260 @@
+body {
+  margin: 0;
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
+  background: #f5f7fb;
+  color: #111827;
+}
+
+.shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+h1, h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.badge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #e5eefc;
+  color: #1e3a8a;
+  font-size: 13px;
+}
+
+.band {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.metric span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.metric strong {
+  font-size: 18px;
+}
+
+.section-head,
+.group-line,
+.probe-head,
+.buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.buttons {
+  flex-wrap: wrap;
+}
+
+button {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+button.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+}
+
+label span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+input, select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fff;
+}
+
+.save-row {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.expand {
+  margin-top: 12px;
+}
+
+.expand > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.expand-body {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.group-line span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+th, td {
+  border-top: 1px solid #e5e7eb;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.error {
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.pill.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pill.bad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.history-bars {
+  display: grid;
+  grid-template-columns: repeat(100, 4px);
+  gap: 1px;
+  margin-top: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.bar {
+  width: 4px;
+  height: 18px;
+  border-radius: 1px;
+  background: #cbd5e1;
+}
+
+.bar.empty {
+  background: #e5e7eb;
+}
+
+.bar.green {
+  background: #22c55e;
+}
+
+.bar.red {
+  background: #ef4444;
+}
+
+.row-details summary {
+  cursor: pointer;
+  color: #2563eb;
+}
+
+.probe-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 8px;
+  background: #fafafa;
+}
+
+.probe-body {
+  margin-top: 6px;
+  color: #374151;
+  font-size: 12px;
+}
+
+.account-name {
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .metrics,
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+}

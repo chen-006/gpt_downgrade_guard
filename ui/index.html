@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sub2 API 防降智小程序</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">Sub2 API</div>
+        <h1>防降智小程序</h1>
+      </div>
+      <div id="runtime-badge" class="badge">未启动</div>
+    </header>
+
+    <section class="band">
+      <div class="metrics">
+        <div class="metric"><span>状态</span><strong id="status-running">-</strong></div>
+        <div class="metric"><span>下一次检查</span><strong id="status-next">-</strong></div>
+        <div class="metric"><span>A 组账号</span><strong id="status-a-count">0</strong></div>
+        <div class="metric"><span>B 组账号</span><strong id="status-b-count">0</strong></div>
+        <div class="metric"><span>本轮检查</span><strong id="status-checked">0</strong></div>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="section-head">
+        <h2>配置</h2>
+        <div class="buttons">
+          <button id="btn-run" class="primary">立即检查一次</button>
+          <button id="btn-pause">暂停</button>
+          <button id="btn-resume">继续</button>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <label>
+          <span>Sub2 API 地址</span>
+          <input id="cfg-base-url" type="text" placeholder="http://127.0.0.1:3000" />
+        </label>
+        <label>
+          <span>管理令牌</span>
+          <input id="cfg-admin-token" type="password" placeholder="留空表示不修改" />
+        </label>
+        <label>
+          <span>检测间隔（秒）</span>
+          <input id="cfg-interval" type="number" min="1" step="1" value="180" />
+        </label>
+        <label>
+          <span>降智标准</span>
+          <select id="cfg-rule">
+            <option value="严格">严格</option>
+            <option value="宽松">宽松</option>
+          </select>
+        </label>
+      </div>
+
+      <details class="expand">
+        <summary>分组 A</summary>
+        <div class="expand-body">
+          <div class="group-line"><span>分组名</span><strong id="group-a-name">-</strong></div>
+          <div class="group-line"><span>分组 ID</span><input id="cfg-group-a" type="number" min="1" step="1" /></div>
+        </div>
+      </details>
+
+      <details class="expand">
+        <summary>分组 B</summary>
+        <div class="expand-body">
+          <div class="group-line"><span>分组名</span><strong id="group-b-name">-</strong></div>
+          <div class="group-line"><span>分组 ID</span><input id="cfg-group-b" type="number" min="1" step="1" /></div>
+        </div>
+      </details>
+
+      <div class="buttons save-row">
+        <button id="btn-save" class="primary">保存配置</button>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="section-head">
+        <h2>账号列表</h2>
+        <div id="status-error" class="error"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>账号</th>
+              <th>分组</th>
+              <th>最近结果</th>
+              <th>是否降智</th>
+              <th>最近时间</th>
+              <th>最近三探针</th>
+              <th>历史</th>
+            </tr>
+          </thead>
+          <tbody id="accounts-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
