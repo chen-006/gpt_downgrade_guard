@@ -171,7 +171,7 @@ async function postJSON(path, body) {
   return result
 }
 
-function collectConfig() {
+function collectConfig(includeToken = false) {
   const payload = {
     sub2api_base_url: $("cfg-base-url").value.trim(),
     interval_seconds: Number($("cfg-interval").value || 180),
@@ -180,8 +180,10 @@ function collectConfig() {
     group_b_id: Number($("cfg-group-b").value || 0),
     listen: state.current?.config?.listen || "127.0.0.1:8787",
   }
-  const token = $("cfg-admin-token").value.trim()
-  if (token) payload.admin_token = token
+  if (includeToken) {
+    const token = $("cfg-admin-token").value.trim()
+    if (token) payload.admin_token = token
+  }
   return payload
 }
 
@@ -192,12 +194,12 @@ function scheduleSave() {
   state.saveTimer = setTimeout(saveConfig, 400)
 }
 
-async function saveConfig() {
+async function saveConfig(includeToken = false) {
   if (state.saving) return
   const version = state.editVersion
   state.saving = true
   try {
-    const result = await postJSON("/api/config", collectConfig())
+    const result = await postJSON("/api/config", collectConfig(includeToken))
     if (version === state.editVersion) {
       state.dirty = false
       renderConfig(result.config || {})
@@ -222,7 +224,7 @@ async function wire() {
     if (state.saveTimer) clearTimeout(state.saveTimer)
     state.dirty = true
     state.editVersion += 1
-    await saveConfig()
+    await saveConfig(true)
   })
   $("btn-pause").addEventListener("click", async () => {
     await postJSON("/api/pause", {})
@@ -242,7 +244,7 @@ async function wire() {
     }
   })
   await refresh()
-  for (const id of ["cfg-base-url", "cfg-admin-token", "cfg-interval"]) {
+  for (const id of ["cfg-base-url", "cfg-interval"]) {
     $(id).addEventListener("input", scheduleSave)
   }
   for (const id of ["cfg-rule", "cfg-group-a", "cfg-group-b"]) {
