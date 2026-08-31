@@ -4,7 +4,8 @@
 
 友链：https://linux.do/
 安装插件会重启sub2api
-![Uploading 屏幕截图 2026-08-31 222233.png…]()
+<img width="1117" height="503" alt="屏幕截图 2026-08-31 222233" src="https://github.com/user-attachments/assets/de0ad4c3-98b3-47c5-a423-e76691876b49" />
+
 
 
 这是一个运行在本机的 Sub2API 辅助程序，用于检测指定分组中的 OpenAI 账号是否仍表现为 `gpt-5.6-sol`，并按照检测结果在两个分组之间调整账号。
